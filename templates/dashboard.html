@@ -29,24 +29,20 @@
             <p>Your blood glucose is expected to drop dangerously low.</p>
         </div>
 
-        <div class="results-grid" style="width:100%; grid-template-columns: 1fr 1fr 1fr;">
+        <div class="results-grid" style="width:100%; grid-template-columns: 1fr 1fr;">
             <div class="stat-card" style="text-align:center;">
                 <h3>Current Level</h3>
                 <p id="resCurr" class="highlight">-</p>
                 <span style="font-size:0.8rem; color:var(--text-muted);">mg/dL</span>
             </div>
-            <div class="stat-card" style="text-align:center;">
-                <h3>Current Risk</h3>
-                <p id="resRisk" class="highlight">-</p>
-            </div>
-            <div class="stat-card" style="text-align:center;">
-                <h3>Next Probable Dip</h3>
-                <p id="resDipTime" class="highlight" style="font-size:1.2rem;">-</p>
+            <div class="stat-card" style="text-align:center; border: 1px solid rgba(255,255,255,0.2);">
+                <h3 style="color:#f8fafc;">Next Expected Dip Below 70</h3>
+                <p id="resDipTime" class="highlight" style="font-size:1.5rem; color:#a855f7;">-</p>
             </div>
         </div>
 
-        <div class="advice-box">
-            <h3 style="margin-bottom:10px;">Context</h3>
+        <div class="advice-box" id="adviceContainer">
+            <h3 style="margin-bottom:10px;">Future Outlook</h3>
             <p id="resExplanation" class="text-sm" style="color:#cbd5e1;">-</p>
             
             <h3 style="margin-top:20px; margin-bottom:10px;">Recommended Action</h3>
@@ -73,33 +69,30 @@
                 const data = JSON.parse(dataStr);
                 
                 document.getElementById("resCurr").innerText = data.glucose;
-                document.getElementById("resRisk").innerText = data.risk_level;
                 document.getElementById("resExplanation").innerText = data.explanation;
                 document.getElementById("resDipTime").innerText = data.time_to_dip || "Stable";
                 
                 const sb = document.getElementById("resSuggestion");
                 const alertB = document.getElementById("alertBox");
+                const adviceCont = document.getElementById("adviceContainer");
 
-                if(data.risk_level === 'HIGH') {
-                    document.getElementById("resRisk").style.color = "var(--danger)";
-                    document.getElementById("resDipTime").style.color = "var(--danger)";
-                    alertB.style.display = "block";
-                    alertB.style.borderColor = "var(--danger)";
-                    sb.style.color = "var(--danger)";
-                    sb.innerText = "Eat 15g of fast-acting carbohydrates immediately and check glucose again in 15 minutes.";
-                } else if(data.risk_level === 'MEDIUM') {
-                    document.getElementById("resRisk").style.color = "var(--warning)";
-                    document.getElementById("resDipTime").style.color = "var(--warning)";
+                if(data.risk_level === 'HIGH' || data.time_to_dip !== 'Stable') {
+                    if (data.time_to_dip === 'Stable') {
+                         document.getElementById("resDipTime").style.color = "var(--danger)";
+                    } else {
+                         document.getElementById("resDipTime").style.color = "var(--warning)";
+                    }
                     alertB.style.display = "block";
                     alertB.style.borderColor = "var(--warning)";
-                    document.getElementById("alertTitle").innerText = "Slight Risk";
+                    document.getElementById("alertTitle").innerText = "Impending Drop Detected";
                     sb.style.color = "var(--warning)";
-                    sb.innerText = "Consider a small snack if you are active, or closely monitor your glucose.";
+                    sb.innerText = "Prepare a fast-acting carb source nearby. AI shows a steep curve downward.";
+                    adviceCont.style.borderColor = "rgba(239, 68, 68, 0.4)";
                 } else {
-                    document.getElementById("resRisk").style.color = "var(--success)";
                     document.getElementById("resDipTime").style.color = "var(--success)";
                     sb.style.color = "var(--success)";
-                    sb.innerText = "You are in a safe range. No action needed right now.";
+                    sb.innerText = "Your predicted trajectory is stable. No action required.";
+                    adviceCont.style.borderColor = "rgba(255,255,255,0.1)";
                 }
 
                 // Plot the 12-hour simulation curve

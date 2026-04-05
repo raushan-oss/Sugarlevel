@@ -47,7 +47,7 @@ def get_time_since_meal(current_time=None):
     delta_hours = (current_time - last_meal).total_seconds() / 3600.0
     return delta_hours
 
-def predict_daily_trajectory(current_glucose):
+def predict_daily_trajectory(current_glucose, client_time_str=None):
     """
     Simulates the entire day's glucose trajectory based on the Trajectory ML Regressor,
     locking the curve to the ACTUAL current_glucose provided by the user.
@@ -58,7 +58,11 @@ def predict_daily_trajectory(current_glucose):
     if traj_model is None:
         return labels, data_points, "Stable"
         
-    now = datetime.now()
+    if client_time_str:
+        # Parse ISO string and drop timezone info to use relative local time naturally
+        now = pd.to_datetime(client_time_str).tz_localize(None)
+    else:
+        now = datetime.now()
     
     # Generate 12 hours of future simulation (every 30 mins)
     future_minutes = np.arange(0, 12 * 60, 30)
@@ -100,8 +104,13 @@ def predict_daily_trajectory(current_glucose):
             
     return labels, data_points, time_to_dip
 
-def predict_risk(current_glucose, activity='Normal'):
-    hours_since_meal = get_time_since_meal()
+def predict_risk(current_glucose, activity='Normal', client_time=None):
+    if client_time:
+        now = pd.to_datetime(client_time).tz_localize(None)
+    else:
+        now = datetime.now()
+        
+    hours_since_meal = get_time_since_meal(now)
     readings = get_recent_readings(limit=2)
     
     drop_rate_per_min = 0.0

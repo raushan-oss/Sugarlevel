@@ -41,13 +41,14 @@ def predict():
         data = request.json
         glucose = float(data.get('glucose'))
         activity = data.get('activity', 'Normal')
+        client_time = data.get('client_time')
         
         add_reading(glucose=glucose, activity=activity)
         
-        risk_level, explanation, projected_30 = predict_risk(glucose)
+        risk_level, explanation, projected_30 = predict_risk(glucose, client_time=client_time)
         
-        # Build 12-Hour Forecast
-        labels, trajectory_data, time_to_dip = predict_daily_trajectory(glucose)
+        # Build 12-Hour Forecast using the local browser time
+        labels, trajectory_data, time_to_dip = predict_daily_trajectory(glucose, client_time_str=client_time)
         
         return jsonify({
             'risk_level': risk_level,

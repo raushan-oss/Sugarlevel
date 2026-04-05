@@ -50,9 +50,12 @@
             btn.innerText = "Analyzing...";
             btn.disabled = true;
 
+            // Format: YYYY-MM-DDTHH:MM:SS locally
+            const localFormat = new Date().toLocaleString("sv-SE").replace(' ', 'T');
             const payload = {
                 glucose: document.getElementById("glucose").value,
-                activity: document.getElementById("activity").value
+                activity: document.getElementById("activity").value,
+                client_time: localFormat
             };
 
             const response = await fetch('/predict', {
