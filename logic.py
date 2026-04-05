@@ -155,9 +155,13 @@ def predict_daily_trajectory(current_glucose, client_time_str=None):
     
     calibrated_predictions = []
     for i, lead_time in enumerate(future_minutes):
-        # Blend out the offset linearly over 240 mins (4 hours)
-        blend_factor = max(0, 1.0 - (lead_time / 240.0))
-        current_offset = offset_start * blend_factor
+        # Blend out the offset linearly over 240 mins (4 hours) ONLY if it's a "High"
+        # If it's a "Low", don't assume the body fixes itself magically (offset remains constant)
+        if offset_start > 0:
+            blend_factor = max(0, 1.0 - (lead_time / 240.0))
+            current_offset = offset_start * blend_factor
+        else:
+            current_offset = offset_start
         
         final_val = simulated_curve[i] + current_offset
         calibrated_predictions.append(final_val)
