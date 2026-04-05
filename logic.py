@@ -48,56 +48,81 @@ def get_time_since_meal(current_time=None):
     return delta_hours
 
 def predict_daily_trajectory(current_glucose, client_time_str=None):
-    """
-    Simulates the entire day's glucose trajectory based on the Trajectory ML Regressor,
-    locking the curve to the ACTUAL current_glucose provided by the user.
-    """
     labels = []
     data_points = []
     
-    if traj_model is None:
-        return labels, data_points, "Stable"
-        
     if client_time_str:
-        # Parse ISO string and drop timezone info to use relative local time naturally
         now = pd.to_datetime(client_time_str).tz_localize(None)
     else:
         now = datetime.now()
-    
-    # Generate 12 hours of future simulation (every 30 mins)
-    future_minutes = np.arange(0, 12 * 60, 30)
-    
-    # Prepare the feature matrix: 'minute_of_day'
-    current_minute_of_day = now.hour * 60 + now.minute
-    
-    X_pred = np.zeros((len(future_minutes), 1))
-    for i, lead_time in enumerate(future_minutes):
-        minute_of_day = (current_minute_of_day + lead_time) % 1440
-        X_pred[i] = [minute_of_day]
         
-    # Baseline predicted trajectory from the model
-    raw_predictions = traj_model.predict(X_pred)
+    profile = get_user_profile()
+    meals = []
+    if profile:
+        today_str = now.strftime("%Y-%m-%d")
+        for m in ['breakfast_time', 'lunch_time', 'dinner_time']:
+            if profile[m]:
+                dt = datetime.strptime(f"{today_str} {profile[m]}", "%Y-%m-%d %H:%M")
+                meals.append(dt)
+                meals.append(dt + pd.Timedelta(days=1)) # Tomorrow's meals too
+                meals.append(dt - pd.Timedelta(days=1)) # Yesterday's meals
+                
+    # Biological Simulation:
+    # 1. Base metabolism level that it wants to drop to without food
+    base_level = 65.0 
     
-    # Calibration Offset: Anchor the model's current predicted point to the User's actual current glucose
-    # raw_predictions[0] is theoretically the model's expectation of the current glucose
-    offset = current_glucose - raw_predictions[0]
+    future_minutes = np.arange(0, 12 * 60, 30)
+    simulated_curve = []
     
-    # Apply offset and add some biological smoothing
-    calibrated_predictions = raw_predictions + offset
+    for lead_time in future_minutes:
+        pred_time = now + timedelta(minutes=float(lead_time))
+        
+        # Find the most recent meal BEFORE this exact pred_time
+        past_meals = [m for m in meals if m <= pred_time]
+        if past_meals:
+            last_meal = max(past_meals)
+            mins_since_meal = (pred_time - last_meal).total_seconds() / 60.0
+            
+            # Spike mechanics: Peaks at 60 mins (+50 mg/dL), then drops linearly 
+            # by 15 mg/dL per hour (0.25 per min) until it hits base_level
+            if mins_since_meal < 60:
+                # Rising
+                sugar = base_level + 30 + (mins_since_meal / 60.0) * 50
+            else:
+                # Falling
+                peak = base_level + 80
+                sugar = peak - ((mins_since_meal - 60) * 0.25)
+                if sugar < base_level:
+                    sugar = base_level
+        else:
+            sugar = base_level
+            
+        simulated_curve.append(sugar)
+        
+    # Calibration Offset:
+    # Anchor the simulated curve to the User's actual current glucose
+    # But slowly blend the offset out over 4 hours so it returns to the natural simulated curve
+    offset_start = current_glucose - simulated_curve[0]
     
-    # Extract "Next Dip"
+    calibrated_predictions = []
+    for i, lead_time in enumerate(future_minutes):
+        # Blend out the offset linearly over 240 mins (4 hours)
+        blend_factor = max(0, 1.0 - (lead_time / 240.0))
+        current_offset = offset_start * blend_factor
+        
+        final_val = simulated_curve[i] + current_offset
+        calibrated_predictions.append(final_val)
+    
     time_to_dip = "Stable"
     found_dip = False
     
     for i, lead_time in enumerate(future_minutes):
         pred_g = calibrated_predictions[i]
-        
-        # Format label (HH:MM)
         pred_time = now + timedelta(minutes=float(lead_time))
+        
         labels.append(pred_time.strftime("%H:%M"))
         data_points.append(round(pred_g, 1))
         
-        # Check for dip below 70
         if not found_dip and pred_g < 70 and lead_time > 0:
             found_dip = True
             time_to_dip = f"At {pred_time.strftime('%I:%M %p')}"
