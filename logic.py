@@ -165,6 +165,11 @@ def predict_daily_trajectory(current_glucose, client_time_str=None):
     time_to_dip = "Stable"
     found_dip = False
     
+    # Check if currently low
+    if current_glucose <= 70:
+        time_to_dip = "Already Low"
+        found_dip = True
+    
     for i, lead_time in enumerate(future_minutes):
         pred_g = calibrated_predictions[i]
         pred_time = now + timedelta(minutes=float(lead_time))
