@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hypoglycaemia Dashboard</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="dashboard-body">
+    <div class="glass-container dashboard-container">
+        
+        <div class="left-panel">
+            <h2>Current State</h2>
+            <form id="predictionForm" class="prediction-form">
+                <div class="input-group">
+                    <label>Timestamp</label>
+                    <input type="datetime-local" id="timestamp" required>
+                </div>
+                <div class="input-group">
+                    <label>Glucose (mg/dL)</label>
+                    <input type="number" id="glucose" required>
+                </div>
+                <div class="input-group">
+                    <label>Carbs (g)</label>
+                    <input type="number" id="carbs" value="0" required>
+                </div>
+                <div class="input-group">
+                    <label>Insulin (units)</label>
+                    <input type="number" id="insulin" value="0" required>
+                </div>
+                <div class="input-group">
+                    <label>Activity Level</label>
+                    <select id="activity" required>
+                        <option value="Low">Low</option>
+                        <option value="Medium">Medium</option>
+                        <option value="High">High</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Sleep (hours)</label>
+                    <input type="number" id="sleep" value="8" required>
+                </div>
+                <button type="submit" class="btn primary full-width">Predict Risk</button>
+            </form>
+            <a href="/" class="btn secondary full-width mt-10">Back Home</a>
+        </div>
+
+        <div class="right-panel">
+            <div id="alertBox" class="alert-box hidden">
+                <h3 id="alertTitle">⚠️ High Risk of Hypoglycemia</h3>
+                <p id="alertMessage">Your blood glucose is expected to drop below 70 mg/dL in the next 30 minutes.</p>
+            </div>
+
+            <div class="results-grid">
+                <div class="stat-card">
+                    <h3>Risk Level</h3>
+                    <p id="resRisk" class="highlight">-</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Probability</h3>
+                    <p id="resProb" class="highlight">-</p>
+                </div>
+            </div>
+            <div class="stat-card mt-10">
+                <h3>Explanation</h3>
+                <p id="resExplanation" class="text-sm">Submit your current metrics to see the model's explanation.</p>
+            </div>
+
+            <div class="chart-container">
+                <canvas id="glucoseChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

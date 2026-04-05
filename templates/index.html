@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Context-Aware Hypoglycaemia Risk Intelligence System</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="glass-container">
+        <header>
+            <h1>Hypo Intelligence</h1>
+            <p>Predictive AI for your metabolic health.</p>
+        </header>
+
+        <div class="setup-section">
+            <div class="card">
+                <h2>1. Setup Baseline Model</h2>
+                <p>Upload your historical data (CSV) to train the baseline ML model.</p>
+                <form id="uploadForm">
+                    <input type="file" id="csvFile" accept=".csv" required>
+                    <button type="submit" class="btn primary">Upload & Train</button>
+                </form>
+                <div id="uploadStatus" class="status-msg"></div>
+            </div>
+
+            <div class="card">
+                <h2>2. Simulate Current State</h2>
+                <p>Once trained, enter your current metrics to see real-time risk prediction.</p>
+                <form id="manualEntryForm" action="/dashboard">
+                    <button type="submit" class="btn secondary">Go to Dashboard</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
