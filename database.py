@@ -87,6 +87,15 @@ def get_recent_readings(limit=5):
     conn.close()
     return [dict(row) for row in rows][::-1] # return chronological
 
+def get_todays_readings():
+    conn = get_db_connection()
+    c = conn.cursor()
+    # SQLite date('now', 'localtime') grabs today's records
+    c.execute("SELECT timestamp, glucose FROM readings WHERE date(timestamp) = date('now', 'localtime') ORDER BY timestamp ASC")
+    rows = c.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
 # Initialize on import
 if not os.path.exists(DB_PATH):
     init_db()

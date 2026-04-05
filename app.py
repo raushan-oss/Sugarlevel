@@ -41,16 +41,15 @@ def predict():
         glucose = float(data.get('glucose'))
         activity = data.get('activity', 'Normal')
         
-        # Save reading to SQLite history
         add_reading(glucose=glucose, activity=activity)
         
-        # Determine hybrid risk
-        risk_level, explanation, projected_30 = predict_risk(glucose)
+        risk_level, explanation, projected_30, time_to_dip = predict_risk(glucose)
         
         return jsonify({
             'risk_level': risk_level,
             'explanation': explanation,
             'projected_30': round(projected_30, 2),
+            'time_to_dip': time_to_dip,
             'glucose': glucose
         })
 
@@ -59,12 +58,12 @@ def predict():
 
 @app.route('/history')
 def history():
-    # Fetch recent readings for charting
-    readings = get_recent_readings(limit=10)
+    from database import get_todays_readings
+    readings = get_todays_readings()
     data = []
     labels = []
     for r in readings:
-        labels.append(r['timestamp'].split(' ')[1][:5]) # "14:30"
+        labels.append(r['timestamp'].split(' ')[1][:5])
         data.append(r['glucose'])
     return jsonify({"labels": labels, "data": data})
 
