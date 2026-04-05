@@ -21,7 +21,9 @@ def init_db():
             breakfast_time TEXT,
             lunch_time TEXT,
             dinner_time TEXT,
-            activity_level TEXT
+            activity_level TEXT,
+            insulin_sensitivity REAL DEFAULT 15,
+            carb_ratio REAL DEFAULT 10
         )
     ''')
     
@@ -49,14 +51,18 @@ def save_user_profile(data):
     if row:
         c.execute('''
             UPDATE user_profile
-            SET wake_up_time=?, breakfast_time=?, lunch_time=?, dinner_time=?, activity_level=?
+            SET wake_up_time=?, breakfast_time=?, lunch_time=?, dinner_time=?, activity_level=?, 
+                insulin_sensitivity=?, carb_ratio=?
             WHERE id=?
-        ''', (data['wake_up_time'], data['breakfast_time'], data['lunch_time'], data['dinner_time'], data['activity_level'], row['id']))
+        ''', (data['wake_up_time'], data['breakfast_time'], data['lunch_time'], data['dinner_time'], data['activity_level'], 
+               data['insulin_sensitivity'], data['carb_ratio'], row['id']))
     else:
         c.execute('''
-            INSERT INTO user_profile (wake_up_time, breakfast_time, lunch_time, dinner_time, activity_level)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (data['wake_up_time'], data['breakfast_time'], data['lunch_time'], data['dinner_time'], data['activity_level']))
+            INSERT INTO user_profile (wake_up_time, breakfast_time, lunch_time, dinner_time, activity_level, 
+                                      insulin_sensitivity, carb_ratio)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (data['wake_up_time'], data['breakfast_time'], data['lunch_time'], data['dinner_time'], data['activity_level'], 
+               data['insulin_sensitivity'], data['carb_ratio']))
     
     conn.commit()
     conn.close()

@@ -37,6 +37,16 @@
                     <option value="High" {% if profile.activity_level=='High' %}selected{% endif %}>High</option>
                 </select>
             </div>
+            <div class="input-group">
+                <label>Insulin Sensitivity (1 Unit drops how many mg/dL?)</label>
+                <input type="number" name="insulin_sensitivity" value="{{ profile.insulin_sensitivity or 15 }}" step="0.1" required>
+                <p class="text-xs text-muted">Standard is ~15 mg/dL per unit.</p>
+            </div>
+            <div class="input-group">
+                <label>Carb Ratio (1 Unit covers how many grams of Carbs?)</label>
+                <input type="number" name="carb_ratio" value="{{ profile.carb_ratio or 10 }}" step="0.1" required>
+                <p class="text-xs text-muted">Standard is ~10g per unit.</p>
+            </div>
             <button type="submit" class="btn primary full-width">Save Profile</button>
         </form>
     </div>

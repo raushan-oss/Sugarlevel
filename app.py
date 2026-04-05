@@ -22,7 +22,9 @@ def setup():
             'breakfast_time': data.get('breakfast_time', '08:00'),
             'lunch_time': data.get('lunch_time', '13:00'),
             'dinner_time': data.get('dinner_time', '19:00'),
-            'activity_level': data.get('activity_level', 'Medium')
+            'activity_level': data.get('activity_level', 'Medium'),
+            'insulin_sensitivity': float(data.get('insulin_sensitivity', 15)),
+            'carb_ratio': float(data.get('carb_ratio', 10))
         })
         return redirect(url_for('index'))
         
@@ -45,15 +47,17 @@ def predict():
         
         add_reading(glucose=glucose, activity=activity)
         
-        risk_level, explanation, projected_30 = predict_risk(glucose, client_time=client_time)
+        # Risk level and LBGI score from biological logic
+        risk_level, explanation, lbgi_score = predict_risk(glucose, client_time=client_time)
         
-        # Build 12-Hour Forecast using the local browser time
+        # Build 12-Hour Forecast (Trajectory)
+        from logic import predict_daily_trajectory
         labels, trajectory_data, time_to_dip = predict_daily_trajectory(glucose, client_time_str=client_time)
         
         return jsonify({
             'risk_level': risk_level,
             'explanation': explanation,
-            'projected_30': round(projected_30, 2),
+            'lbgi_score': round(lbgi_score, 2),
             'time_to_dip': time_to_dip,
             'glucose': glucose,
             'trajectory_labels': labels,

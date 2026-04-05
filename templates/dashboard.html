@@ -29,11 +29,15 @@
             <p>Your blood glucose is expected to drop dangerously low.</p>
         </div>
 
-        <div class="results-grid" style="width:100%; grid-template-columns: 1fr 1fr;">
+        <div class="results-grid" style="width:100%; grid-template-columns: 1fr 1fr 1fr;">
             <div class="stat-card" style="text-align:center;">
                 <h3>Current Level</h3>
                 <p id="resCurr" class="highlight">-</p>
                 <span style="font-size:0.8rem; color:var(--text-muted);">mg/dL</span>
+            </div>
+            <div class="stat-card" style="text-align:center; border: 1px solid rgba(255,255,255,0.2);">
+                <h3 style="color:#f8fafc;">Clinical Risk (LBGI)</h3>
+                <p id="resLbg" class="highlight" style="font-size:1.5rem;">-</p>
             </div>
             <div class="stat-card" style="text-align:center; border: 1px solid rgba(255,255,255,0.2);">
                 <h3 style="color:#f8fafc;">Next Expected Dip Below 70</h3>
@@ -69,30 +73,37 @@
                 const data = JSON.parse(dataStr);
                 
                 document.getElementById("resCurr").innerText = data.glucose;
+                document.getElementById("resLbg").innerText = data.lbgi_score || "0.0";
                 document.getElementById("resExplanation").innerText = data.explanation;
                 document.getElementById("resDipTime").innerText = data.time_to_dip || "Stable";
                 
                 const sb = document.getElementById("resSuggestion");
                 const alertB = document.getElementById("alertBox");
                 const adviceCont = document.getElementById("adviceContainer");
+                const lbgEl = document.getElementById("resLbg");
 
-                if(data.risk_level === 'HIGH' || data.time_to_dip !== 'Stable') {
-                    if (data.time_to_dip === 'Stable') {
-                         document.getElementById("resDipTime").style.color = "var(--danger)";
-                    } else {
-                         document.getElementById("resDipTime").style.color = "var(--warning)";
-                    }
+                if(data.lbgi_score >= 5.0 || data.risk_level === 'HIGH') {
+                    lbgEl.style.color = "var(--danger)";
+                    document.getElementById("resDipTime").style.color = "var(--danger)";
+                    alertB.style.display = "block";
+                    alertB.style.borderColor = "var(--danger)";
+                    document.getElementById("alertTitle").innerText = "Clinical High Risk";
+                    sb.style.color = "var(--danger)";
+                    sb.innerText = "Biological risk scoring indicates severe instability. Have fast-acting carbs on hand.";
+                    adviceCont.style.borderColor = "rgba(239, 68, 68, 0.4)";
+                } else if(data.lbgi_score >= 2.5 || data.risk_level === 'MEDIUM') {
+                    lbgEl.style.color = "var(--warning)";
+                    document.getElementById("resDipTime").style.color = "var(--warning)";
                     alertB.style.display = "block";
                     alertB.style.borderColor = "var(--warning)";
-                    document.getElementById("alertTitle").innerText = "Impending Drop Detected";
+                    document.getElementById("alertTitle").innerText = "Moderate Instability";
                     sb.style.color = "var(--warning)";
-                    sb.innerText = "Prepare a fast-acting carb source nearby. AI shows a steep curve downward.";
-                    adviceCont.style.borderColor = "rgba(239, 68, 68, 0.4)";
+                    sb.innerText = "Monitor closely. The clinical index shows your levels are fluctuating into a low range.";
                 } else {
+                    lbgEl.style.color = "var(--success)";
                     document.getElementById("resDipTime").style.color = "var(--success)";
                     sb.style.color = "var(--success)";
-                    sb.innerText = "Your predicted trajectory is stable. No action required.";
-                    adviceCont.style.borderColor = "rgba(255,255,255,0.1)";
+                    sb.innerText = "Your clinical clinical index is stable.";
                 }
 
                 // Plot the 12-hour simulation curve
