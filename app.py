@@ -36,6 +36,7 @@ def dashboard():
 
 @app.route('/predict', methods=['POST'])
 def predict():
+    from logic import predict_daily_trajectory
     try:
         data = request.json
         glucose = float(data.get('glucose'))
@@ -43,29 +44,31 @@ def predict():
         
         add_reading(glucose=glucose, activity=activity)
         
-        risk_level, explanation, projected_30, time_to_dip = predict_risk(glucose)
+        risk_level, explanation, projected_30 = predict_risk(glucose)
+        
+        # Build 12-Hour Forecast
+        labels, trajectory_data, time_to_dip = predict_daily_trajectory(glucose)
         
         return jsonify({
             'risk_level': risk_level,
             'explanation': explanation,
             'projected_30': round(projected_30, 2),
             'time_to_dip': time_to_dip,
-            'glucose': glucose
+            'glucose': glucose,
+            'trajectory_labels': labels,
+            'trajectory_data': trajectory_data
         })
 
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
-@app.route('/history')
-def history():
-    from database import get_todays_readings
-    readings = get_todays_readings()
-    data = []
-    labels = []
-    for r in readings:
-        labels.append(r['timestamp'].split(' ')[1][:5])
-        data.append(r['glucose'])
-    return jsonify({"labels": labels, "data": data})
+@app.route('/api/retrain', methods=['POST'])
+def api_retrain():
+    from retrain import retrain_model
+    success = retrain_model()
+    if success:
+        return jsonify({'status': 'success', 'message': 'AI profile successfully updated!'})
+    return jsonify({'status': 'error', 'message': 'Failed to compile new AI weights.'}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

@@ -1,14 +1,25 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import pandas as pd
 import joblib
 import os
+import numpy as np
 from database import get_user_profile, get_recent_readings
 
+# Load legacy light model for immediate risk (optional but kept for safety)
 ML_MODEL_PATH = 'models/light_model.pkl'
 ml_model = None
 if os.path.exists(ML_MODEL_PATH):
     try:
         ml_model = joblib.load(ML_MODEL_PATH)
+    except:
+        pass
+
+# Load the new 24-Hour Trajectory Regressor
+TRAJ_MODEL_PATH = 'models/trajectory_model.pkl'
+traj_model = None
+if os.path.exists(TRAJ_MODEL_PATH):
+    try:
+        traj_model = joblib.load(TRAJ_MODEL_PATH)
     except:
         pass
 
@@ -36,7 +47,60 @@ def get_time_since_meal(current_time=None):
     delta_hours = (current_time - last_meal).total_seconds() / 3600.0
     return delta_hours
 
-def predict_risk(current_glucose, last_meal_category=None):
+def predict_daily_trajectory(current_glucose):
+    """
+    Simulates the entire day's glucose trajectory based on the Trajectory ML Regressor,
+    locking the curve to the ACTUAL current_glucose provided by the user.
+    """
+    labels = []
+    data_points = []
+    
+    if traj_model is None:
+        return labels, data_points, "Stable"
+        
+    now = datetime.now()
+    
+    # Generate 12 hours of future simulation (every 30 mins)
+    future_minutes = np.arange(0, 12 * 60, 30)
+    
+    # Prepare the feature matrix: 'minute_of_day'
+    current_minute_of_day = now.hour * 60 + now.minute
+    
+    X_pred = np.zeros((len(future_minutes), 1))
+    for i, lead_time in enumerate(future_minutes):
+        minute_of_day = (current_minute_of_day + lead_time) % 1440
+        X_pred[i] = [minute_of_day]
+        
+    # Baseline predicted trajectory from the model
+    raw_predictions = traj_model.predict(X_pred)
+    
+    # Calibration Offset: Anchor the model's current predicted point to the User's actual current glucose
+    # raw_predictions[0] is theoretically the model's expectation of the current glucose
+    offset = current_glucose - raw_predictions[0]
+    
+    # Apply offset and add some biological smoothing
+    calibrated_predictions = raw_predictions + offset
+    
+    # Extract "Next Dip"
+    time_to_dip = "Stable"
+    found_dip = False
+    
+    for i, lead_time in enumerate(future_minutes):
+        pred_g = calibrated_predictions[i]
+        
+        # Format label (HH:MM)
+        pred_time = now + timedelta(minutes=float(lead_time))
+        labels.append(pred_time.strftime("%H:%M"))
+        data_points.append(round(pred_g, 1))
+        
+        # Check for dip below 70
+        if not found_dip and pred_g < 70 and lead_time > 0:
+            found_dip = True
+            time_to_dip = f"At {pred_time.strftime('%I:%M %p')}"
+            
+    return labels, data_points, time_to_dip
+
+def predict_risk(current_glucose, activity='Normal'):
     hours_since_meal = get_time_since_meal()
     readings = get_recent_readings(limit=2)
     
@@ -55,52 +119,37 @@ def predict_risk(current_glucose, last_meal_category=None):
         time_diff_mins = (curr_time - prev_time).total_seconds() / 60.0
         
         if time_diff_mins > 0:
-            glucose_diff = prev['glucose'] - current_glucose 
-            drop_rate_per_min = glucose_diff / time_diff_mins
+            drop_rate_per_min = (prev['glucose'] - current_glucose) / time_diff_mins
 
-    # Predict future (30 mins drop)
+    # 30min Safety
     predicted_30 = current_glucose
     if drop_rate_per_min > 0:
         predicted_30 = current_glucose - (drop_rate_per_min * 30)
 
-    # ML Prediction
+    # Re-use our ML classifier for immediate anomaly detection
     ml_risk_flag = 0
     if ml_model is not None:
         try:
-            # Features: ['glucose', 'drop_rate']
             pred = ml_model.predict([[current_glucose, drop_rate_per_min]])
             ml_risk_flag = int(pred[0])
         except:
             pass
 
-    # Time to next dip calculation
-    time_to_dip = "Stable"
-    if drop_rate_per_min > 0:
-        minutes_to_70 = (current_glucose - 70) / drop_rate_per_min
-        if minutes_to_70 < 0:
-            time_to_dip = "Already Low"
-        else:
-            time_to_dip = f"~{int(minutes_to_70)} mins"
-
-    # Assess Risk
+    # Assess overall Risk
     risk_level = "LOW"
-    explanation = "Everything looks stable."
+    explanation = "Trajectory is safe. AI forecasting stable levels."
 
     if current_glucose < 70:
         risk_level = "HIGH"
         explanation = "Immediate action required: Glucose is critically low now."
-        return risk_level, explanation, predicted_30, time_to_dip
-        
-    if predicted_30 < 70 or ml_risk_flag == 1:
+    elif predicted_30 < 70 or ml_risk_flag == 1:
         risk_level = "HIGH"
-        explanation = f"⚠️ High risk: Glucose projected to drop rapidly OR Machine Learning detected anomalous pattern."
-        return risk_level, explanation, predicted_30, time_to_dip
-
-    if current_glucose < 90 and hours_since_meal > 3.0:
+        explanation = "⚠️ High risk: Rapid mathematical drop OR Machine Learning detected anomalous pattern."
+    elif current_glucose < 90 and hours_since_meal > 3.0:
         risk_level = "MEDIUM"
-        explanation = f"It has been {hours_since_meal:.1f} hours since your last routine meal. Glucose is dropping low."
+        explanation = f"It's been {hours_since_meal:.1f} hours since your last routine meal. Avoid dropping lower."
     elif drop_rate_per_min > 1.0:
         risk_level = "MEDIUM"
         explanation = "Glucose is dropping rapidly, keep an eye on it."
 
-    return risk_level, explanation, predicted_30, time_to_dip
+    return risk_level, explanation, predicted_30

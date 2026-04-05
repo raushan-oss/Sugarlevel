@@ -36,7 +36,7 @@
                 <span style="font-size:0.8rem; color:var(--text-muted);">mg/dL</span>
             </div>
             <div class="stat-card" style="text-align:center;">
-                <h3>Risk Level</h3>
+                <h3>Current Risk</h3>
                 <p id="resRisk" class="highlight">-</p>
             </div>
             <div class="stat-card" style="text-align:center;">
@@ -46,21 +46,24 @@
         </div>
 
         <div class="advice-box">
-            <h3 style="margin-bottom:10px;">Why?</h3>
+            <h3 style="margin-bottom:10px;">Context</h3>
             <p id="resExplanation" class="text-sm" style="color:#cbd5e1;">-</p>
             
-            <h3 style="margin-top:20px; margin-bottom:10px;">Suggestion</h3>
+            <h3 style="margin-top:20px; margin-bottom:10px;">Recommended Action</h3>
             <p id="resSuggestion" class="text-sm" style="font-weight: 600;">-</p>
         </div>
 
         <div class="chart-container">
+            <h3 style="font-size:1rem; margin-bottom:15px; font-weight:400;">12-Hour AI Trajectory Forecast</h3>
             <canvas id="dailyChart"></canvas>
         </div>
 
-        <div style="display:flex; width:100%; gap:15px; margin-top:20px;">
-            <a href="/" class="btn secondary" style="flex:1;">Log Another Reading</a>
-            <a href="/setup" class="btn secondary" style="flex:1;">Edit Routine Settings</a>
+        <div style="display:flex; width:100%; gap:15px; margin-top:20px; flex-wrap:wrap;">
+            <a href="/" class="btn secondary" style="flex:1; min-width: 150px;">Log New Reading</a>
+            <a href="/setup" class="btn secondary" style="flex:1; min-width: 150px;">Edit Routine</a>
+            <button id="btnRetrain" class="btn primary" style="flex:2; min-width: 250px;">🤖 Sync & Retrain AI Profile</button>
         </div>
+        <div id="retrainStatus" style="width:100%; text-align:center; font-size:0.9rem; margin-top:5px;"></div>
     </div>
 
     <script>
@@ -98,58 +101,88 @@
                     sb.style.color = "var(--success)";
                     sb.innerText = "You are in a safe range. No action needed right now.";
                 }
+
+                // Plot the 12-hour simulation curve
+                if(data.trajectory_labels && data.trajectory_data) {
+                    const ctx = document.getElementById('dailyChart').getContext('2d');
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: data.trajectory_labels,
+                            datasets: [{
+                                label: "Predicted Glucose Curve",
+                                data: data.trajectory_data,
+                                borderColor: '#a855f7', // Purplish AI feel
+                                backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                                borderWidth: 3,
+                                fill: true,
+                                tension: 0.4, // Smooth curve
+                                pointRadius: 0,
+                                pointHitRadius: 10
+                            },
+                            {
+                                label: 'Danger Zone (70 mg/dL)',
+                                data: Array(data.trajectory_labels.length).fill(70),
+                                borderColor: '#ef4444',
+                                borderWidth: 1,
+                                borderDash: [5, 5],
+                                fill: false,
+                                pointRadius: 0
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: {
+                                    grid: { color: 'rgba(255,255,255,0.05)' },
+                                    ticks: { color: '#94a3b8' }
+                                },
+                                x: {
+                                    grid: { display: false },
+                                    ticks: { color: '#94a3b8', maxTicksLimit: 8 }
+                                }
+                            },
+                            plugins: {
+                                legend: { labels: { color: '#f8fafc' } }
+                            }
+                        }
+                    });
+                }
+            } else {
+                // No recent input, go to home
+                window.location.href = "/";
             }
 
-            // Load Chart
-            try {
-                const response = await fetch('/history');
-                const historyData = await response.json();
+            // Retrain Feature Setup
+            document.getElementById("btnRetrain").addEventListener("click", async (e) => {
+                const btn = e.target;
+                const status = document.getElementById("retrainStatus");
                 
-                const ctx = document.getElementById('dailyChart').getContext('2d');
-                new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: historyData.labels,
-                        datasets: [{
-                            label: "Today's Glucose Levels",
-                            data: historyData.data,
-                            borderColor: '#3b82f6',
-                            backgroundColor: 'rgba(59, 130, 246, 0.2)',
-                            borderWidth: 2,
-                            fill: true,
-                            tension: 0.3
-                        },
-                        {
-                            label: 'Hypoglycemia Threshold (70)',
-                            data: Array(historyData.labels.length).fill(70),
-                            borderColor: '#ef4444',
-                            borderWidth: 1,
-                            borderDash: [5, 5],
-                            fill: false,
-                            pointRadius: 0
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            y: {
-                                grid: { color: 'rgba(255,255,255,0.1)' },
-                                ticks: { color: '#94a3b8' }
-                            },
-                            x: {
-                                grid: { color: 'rgba(255,255,255,0.1)' },
-                                ticks: { color: '#94a3b8' }
-                            }
-                        },
-                        plugins: {
-                            legend: { labels: { color: '#f8fafc' } }
-                        }
+                btn.innerText = "Syncing & Training...";
+                btn.disabled = true;
+                status.innerText = "Pushing recent database logs to model, please wait...";
+                status.style.color = "var(--text-muted)";
+
+                try {
+                    const res = await fetch('/api/retrain', { method: 'POST' });
+                    const dat = await res.json();
+                    
+                    if(res.ok) {
+                        status.innerText = dat.message;
+                        status.style.color = "var(--success)";
+                    } else {
+                        status.innerText = dat.message || "Error retraining model.";
+                        status.style.color = "var(--danger)";
                     }
-                });
-            } catch(e) {
-                console.error("Failed to load chart data", e);
-            }
+                } catch(err) {
+                    status.innerText = "Network Error. Could not trigger retraining.";
+                    status.style.color = "var(--danger)";
+                } finally {
+                    btn.innerText = "🤖 Sync & Retrain AI Profile";
+                    btn.disabled = false;
+                }
+            });
         });
     </script>
 </body>
