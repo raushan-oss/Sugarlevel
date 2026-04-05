@@ -3,7 +3,7 @@ import pandas as pd
 import joblib
 import os
 import numpy as np
-from database import get_user_profile, get_recent_readings
+from database import get_user_profile, get_recent_readings, get_all_readings
 
 # Load legacy light model for immediate risk (optional but kept for safety)
 ML_MODEL_PATH = 'models/light_model.pkl'
@@ -47,6 +47,53 @@ def get_time_since_meal(current_time=None):
     delta_hours = (current_time - last_meal).total_seconds() / 3600.0
     return delta_hours
 
+def get_dynamic_drop_rate():
+    """
+    Computes average glucose drop rate per minute from the base ML dataset 
+    and the user's personal SQLite history.
+    """
+    drop_rates = []
+    
+    # 1. Learn from Base Model Dataset
+    try:
+        base_df = pd.read_csv('data/glucose_dataset_1000_rows.csv')
+        base_df['timestamp'] = pd.to_datetime(base_df['timestamp'])
+        base_df = base_df.sort_values(by='timestamp').reset_index(drop=True)
+        for i in range(1, len(base_df)):
+            dt = (base_df.loc[i, 'timestamp'] - base_df.loc[i-1, 'timestamp']).total_seconds() / 60.0
+            if dt > 0:
+                rate = (base_df.loc[i-1, 'glucose'] - base_df.loc[i, 'glucose']) / dt
+                if rate > 0: # Only count actual dropping phases
+                    drop_rates.append(rate)
+    except:
+        pass
+        
+    # 2. Learn from User's SQLite History
+    history = get_all_readings()
+    if len(history) > 1:
+        for i in range(1, len(history)):
+            try:
+                prev_time = pd.to_datetime(history[i-1]['timestamp']).tz_localize(None)
+                curr_time = pd.to_datetime(history[i]['timestamp']).tz_localize(None)
+                dt = (curr_time - prev_time).total_seconds() / 60.0
+                if dt > 0:
+                    rate = (history[i-1]['glucose'] - history[i]['glucose']) / dt
+                    if rate > 0:
+                        drop_rates.append(rate)
+            except:
+                continue
+                
+    if not drop_rates:
+        return 0.25 # Fallback static 15 mg/dL per hour if no data exists
+        
+    # Remove extreme outliers and average
+    q1 = np.percentile(drop_rates, 25)
+    q3 = np.percentile(drop_rates, 75)
+    iqr = q3 - q1
+    valid_rates = [r for r in drop_rates if (q1 - 1.5*iqr) <= r <= (q3 + 1.5*iqr)]
+    
+    return np.mean(valid_rates) if valid_rates else 0.25
+
 def predict_daily_trajectory(current_glucose, client_time_str=None):
     labels = []
     data_points = []
@@ -74,6 +121,9 @@ def predict_daily_trajectory(current_glucose, client_time_str=None):
     future_minutes = np.arange(0, 12 * 60, 30)
     simulated_curve = []
     
+    # AI dynamically learned decay rate per minute
+    learned_drop_rate = get_dynamic_drop_rate()
+    
     for lead_time in future_minutes:
         pred_time = now + timedelta(minutes=float(lead_time))
         
@@ -83,15 +133,14 @@ def predict_daily_trajectory(current_glucose, client_time_str=None):
             last_meal = max(past_meals)
             mins_since_meal = (pred_time - last_meal).total_seconds() / 60.0
             
-            # Spike mechanics: Peaks at 60 mins (+50 mg/dL), then drops linearly 
-            # by 15 mg/dL per hour (0.25 per min) until it hits base_level
+            # Spike mechanics: Peaks at 60 mins (+50 mg/dL), then drops dynamically
             if mins_since_meal < 60:
                 # Rising
                 sugar = base_level + 30 + (mins_since_meal / 60.0) * 50
             else:
-                # Falling
+                # Falling: based on the AI learned drop rate from the Base Model and SQLite history!
                 peak = base_level + 80
-                sugar = peak - ((mins_since_meal - 60) * 0.25)
+                sugar = peak - ((mins_since_meal - 60) * learned_drop_rate)
                 if sugar < base_level:
                     sugar = base_level
         else:

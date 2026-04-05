@@ -96,6 +96,14 @@ def get_todays_readings():
     conn.close()
     return [dict(row) for row in rows]
 
+def get_all_readings():
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("SELECT timestamp, glucose FROM readings ORDER BY timestamp ASC")
+    rows = c.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
 # Initialize on import
 if not os.path.exists(DB_PATH):
     init_db()
