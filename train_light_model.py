@@ -24,12 +24,12 @@ def train_light_model(data_path='data/glucose_dataset_1000_rows.csv', save_path=
         if dt > 0:
             df.loc[i, 'drop_rate'] = (df.loc[i-1, 'glucose'] - df.loc[i, 'glucose']) / dt
             
-    # Target: Will it drop < 70 in next 120 mins
+    # Target: Will it drop <= 70 in next 120 mins
     df['target'] = 0
     for i in range(len(df)):
         ct = df.loc[i, 'timestamp']
         future = df[(df['timestamp'] > ct) & (df['timestamp'] <= ct + pd.Timedelta(minutes=125))]
-        if not future.empty and any(future['glucose'] < 70):
+        if not future.empty and any(future['glucose'] <= 70):
             df.loc[i, 'target'] = 1
             
     # Drop first row because drop_rate is 0 arbitrarily

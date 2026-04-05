@@ -172,7 +172,7 @@ def predict_daily_trajectory(current_glucose, client_time_str=None):
         labels.append(pred_time.strftime("%H:%M"))
         data_points.append(round(pred_g, 1))
         
-        if not found_dip and pred_g < 70 and lead_time > 0:
+        if not found_dip and pred_g <= 70 and lead_time > 0:
             found_dip = True
             time_to_dip = f"At {pred_time.strftime('%I:%M %p')}"
             
@@ -222,10 +222,10 @@ def predict_risk(current_glucose, activity='Normal', client_time=None):
     risk_level = "LOW"
     explanation = "Trajectory is safe. AI forecasting stable levels."
 
-    if current_glucose < 70:
+    if current_glucose <= 70:
         risk_level = "HIGH"
         explanation = "Immediate action required: Glucose is critically low now."
-    elif predicted_30 < 70 or ml_risk_flag == 1:
+    elif predicted_30 <= 70 or ml_risk_flag == 1:
         risk_level = "HIGH"
         explanation = "⚠️ High risk: Rapid mathematical drop OR Machine Learning detected anomalous pattern."
     elif current_glucose < 90 and hours_since_meal > 3.0:
