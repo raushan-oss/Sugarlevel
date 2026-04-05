@@ -18,7 +18,7 @@ def calculate_lbgi_risk(glucose):
     risk_value = np.minimum(0, fbg)
     
     # LBGI component: 10 * risk^2
-    return 10 * (risk_value**2)
+    return float(10 * (risk_value**2))
 
 def get_dynamic_drop_rate():
     """
