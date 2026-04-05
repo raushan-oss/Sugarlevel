@@ -2,78 +2,88 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hypoglycaemia Dashboard</title>
-    <!-- Google Fonts -->
+    <title>Prediction Result</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .page-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+        }
+        .advice-box { background: rgba(0,0,0,0.2); padding:20px; border-radius:12px; margin-top:20px; width:100%; border:1px solid rgba(255,255,255,0.1); }
+    </style>
 </head>
-<body class="dashboard-body">
-    <div class="glass-container dashboard-container">
-        
-        <div class="left-panel">
-            <h2>Current State</h2>
-            <form id="predictionForm" class="prediction-form">
-                <div class="input-group">
-                    <label>Timestamp</label>
-                    <input type="datetime-local" id="timestamp" required>
-                </div>
-                <div class="input-group">
-                    <label>Glucose (mg/dL)</label>
-                    <input type="number" id="glucose" required>
-                </div>
-                <div class="input-group">
-                    <label>Carbs (g)</label>
-                    <input type="number" id="carbs" value="0" required>
-                </div>
-                <div class="input-group">
-                    <label>Insulin (units)</label>
-                    <input type="number" id="insulin" value="0" required>
-                </div>
-                <div class="input-group">
-                    <label>Activity Level</label>
-                    <select id="activity" required>
-                        <option value="Low">Low</option>
-                        <option value="Medium">Medium</option>
-                        <option value="High">High</option>
-                    </select>
-                </div>
-                <div class="input-group">
-                    <label>Sleep (hours)</label>
-                    <input type="number" id="sleep" value="8" required>
-                </div>
-                <button type="submit" class="btn primary full-width">Predict Risk</button>
-            </form>
-            <a href="/" class="btn secondary full-width mt-10">Back Home</a>
+<body>
+    <div class="glass-container page-wrapper">
+        <header>
+            <h1>Analysis Complete</h1>
+        </header>
+
+        <div id="alertBox" class="alert-box" style="width: 100%; display:none;">
+            <h3 id="alertTitle">⚠️ High Risk of Hypoglycemia</h3>
+            <p>Your blood glucose is expected to drop dangerously low in the next 30-60 minutes.</p>
         </div>
 
-        <div class="right-panel">
-            <div id="alertBox" class="alert-box hidden">
-                <h3 id="alertTitle">⚠️ High Risk of Hypoglycemia</h3>
-                <p id="alertMessage">Your blood glucose is expected to drop below 70 mg/dL in the next 30 minutes.</p>
+        <div class="results-grid" style="width:100%;">
+            <div class="stat-card" style="text-align:center;">
+                <h3>Current Level</h3>
+                <p id="resCurr" class="highlight">-</p>
+                <span style="font-size:0.8rem; color:var(--text-muted);">mg/dL</span>
             </div>
-
-            <div class="results-grid">
-                <div class="stat-card">
-                    <h3>Risk Level</h3>
-                    <p id="resRisk" class="highlight">-</p>
-                </div>
-                <div class="stat-card">
-                    <h3>Probability</h3>
-                    <p id="resProb" class="highlight">-</p>
-                </div>
-            </div>
-            <div class="stat-card mt-10">
-                <h3>Explanation</h3>
-                <p id="resExplanation" class="text-sm">Submit your current metrics to see the model's explanation.</p>
-            </div>
-
-            <div class="chart-container">
-                <canvas id="glucoseChart"></canvas>
+            <div class="stat-card" style="text-align:center;">
+                <h3>Risk Level</h3>
+                <p id="resRisk" class="highlight">-</p>
             </div>
         </div>
+
+        <div class="advice-box">
+            <h3 style="margin-bottom:10px;">Why?</h3>
+            <p id="resExplanation" class="text-sm" style="color:#cbd5e1;">-</p>
+            
+            <h3 style="margin-top:20px; margin-bottom:10px;">Suggestion</h3>
+            <p id="resSuggestion" class="text-sm" style="font-weight: 600;">-</p>
+        </div>
+
+        <a href="/" class="btn secondary full-width" style="margin-top:20px;">Back to Input</a>
     </div>
-    <script src="/static/js/app.js"></script>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const dataStr = localStorage.getItem("lastPrediction");
+            if(dataStr) {
+                const data = JSON.parse(dataStr);
+                
+                document.getElementById("resCurr").innerText = data.glucose;
+                document.getElementById("resRisk").innerText = data.risk_level;
+                document.getElementById("resExplanation").innerText = data.explanation;
+                
+                const sb = document.getElementById("resSuggestion");
+                const alertB = document.getElementById("alertBox");
+
+                if(data.risk_level === 'HIGH') {
+                    document.getElementById("resRisk").style.color = "var(--danger)";
+                    alertB.style.display = "block";
+                    alertB.style.borderColor = "var(--danger)";
+                    sb.style.color = "var(--danger)";
+                    sb.innerText = "Eat 15g of fast-acting carbohydrates immediately and check glucose again in 15 minutes.";
+                } else if(data.risk_level === 'MEDIUM') {
+                    document.getElementById("resRisk").style.color = "var(--warning)";
+                    alertB.style.display = "block";
+                    alertB.style.borderColor = "var(--warning)";
+                    document.getElementById("alertTitle").innerText = "Slight Risk";
+                    sb.style.color = "var(--warning)";
+                    sb.innerText = "Consider a small snack if you are active, or closely monitor your glucose.";
+                } else {
+                    document.getElementById("resRisk").style.color = "var(--success)";
+                    sb.style.color = "var(--success)";
+                    sb.innerText = "You are in a safe range. No action needed right now.";
+                }
+            } else {
+                window.location.href = "/";
+            }
+        });
+    </script>
 </body>
 </html>

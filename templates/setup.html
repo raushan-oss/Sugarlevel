@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Profile Setup</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="glass-container">
+        <header>
+            <h1>Routine Setup</h1>
+            <p>Help us calculate your risk with minimal future inputs.</p>
+        </header>
+        <form method="POST" class="prediction-form" style="display:flex; flex-direction:column; gap: 15px;">
+            <div class="input-group">
+                <label>Typical Wake-Up Time</label>
+                <input type="time" name="wake_up_time" value="{{ profile.wake_up_time or '07:00' }}" required>
+            </div>
+            <div class="input-group">
+                <label>Typical Breakfast Time</label>
+                <input type="time" name="breakfast_time" value="{{ profile.breakfast_time or '08:00' }}" required>
+            </div>
+            <div class="input-group">
+                <label>Typical Lunch Time</label>
+                <input type="time" name="lunch_time" value="{{ profile.lunch_time or '13:00' }}" required>
+            </div>
+            <div class="input-group">
+                <label>Typical Dinner Time</label>
+                <input type="time" name="dinner_time" value="{{ profile.dinner_time or '19:00' }}" required>
+            </div>
+            <div class="input-group">
+                <label>Base Activity Level</label>
+                <select name="activity_level" required>
+                    <option value="Low" {% if profile.activity_level=='Low' %}selected{% endif %}>Low</option>
+                    <option value="Medium" {% if profile.activity_level=='Medium' %}selected{% endif %}>Medium</option>
+                    <option value="High" {% if profile.activity_level=='High' %}selected{% endif %}>High</option>
+                </select>
+            </div>
+            <button type="submit" class="btn primary full-width">Save Profile</button>
+        </form>
+    </div>
+</body>
+</html>
