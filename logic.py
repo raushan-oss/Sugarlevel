@@ -54,9 +54,13 @@ def get_dynamic_drop_rate():
     valid_rates = [r for r in drop_rates if (q1 - 1.5*iqr) <= r <= (q3 + 1.5*iqr)]
     return np.mean(valid_rates) if valid_rates else 0.25
 
-def predict_daily_trajectory(current_glucose, client_time_str=None):
+def predict_daily_trajectory(current_glucose, activity='Normal', client_time_str=None):
     labels = []
     data_points = []
+    
+    # Activity Multiplier: Metabolic expenditure increases with activity level
+    activity_map = {'Low': 0.8, 'Normal': 1.0, 'High': 1.4}
+    multiplier = activity_map.get(activity, 1.0)
     if client_time_str:
         now = pd.to_datetime(client_time_str).tz_localize(None)
     else:
@@ -72,7 +76,7 @@ def predict_daily_trajectory(current_glucose, client_time_str=None):
                 meals.extend([dt - timedelta(days=1), dt, dt + timedelta(days=1)])
                 
     base_level = 95.0 # Healthier clinical baseline
-    learned_drop_rate = get_dynamic_drop_rate()
+    learned_drop_rate = get_dynamic_drop_rate() * multiplier # Apply the scaling factor
     future_minutes = np.arange(0, 12 * 60, 30)
     simulated_curve = []
     

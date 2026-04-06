@@ -45,14 +45,13 @@ def predict():
         activity = data.get('activity', 'Normal')
         client_time = data.get('client_time')
         
-        add_reading(glucose=glucose, activity=activity)
-        
         # Risk level and LBGI score from biological logic
-        risk_level, explanation, lbgi_score = predict_risk(glucose, client_time=client_time)
+        # We pass the activity factor to refine the drop-rate prediction
+        risk_level, explanation, lbgi_score = predict_risk(glucose, activity=activity, client_time=client_time)
         
         # Build 12-Hour Forecast (Trajectory)
         from logic import predict_daily_trajectory
-        labels, trajectory_data, time_to_dip = predict_daily_trajectory(glucose, client_time_str=client_time)
+        labels, trajectory_data, time_to_dip = predict_daily_trajectory(glucose, activity=activity, client_time_str=client_time)
         
         return jsonify({
             'risk_level': risk_level,
